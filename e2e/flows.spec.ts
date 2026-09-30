@@ -470,6 +470,13 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
     row("账号进行中").getByText("历史显示名", { exact: true }),
   ).toBeVisible();
   await expect(row("账号新任务").getByRole("textbox")).toHaveCount(0);
+  await expect(
+    row("账号新任务").getByText("账号甲", { exact: true }),
+  ).toHaveCount(0);
+  await a.screenshot({
+    path: "docs/screenshots/account-unclaimed.png",
+    fullPage: true,
+  });
   expect(
     await confirmAction(
       row("账号新任务").getByRole("button", { name: "认领", exact: true }),

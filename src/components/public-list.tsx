@@ -212,11 +212,7 @@ export function PublicList() {
                           void act("claim", item.id);
                         }}
                       >
-                        {data.participant ? (
-                          <p className="min-w-0 flex-1 self-center text-sm break-words">
-                            {data.participant.name}
-                          </p>
-                        ) : (
+                        {!data.participant && (
                           <input
                             aria-label={`认领 ${item.title} 的姓名`}
                             placeholder="填写你的姓名"

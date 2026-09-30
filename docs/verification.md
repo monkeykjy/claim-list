@@ -107,6 +107,10 @@
 
 `pnpm check`、`pnpm build`、`PLAYWRIGHT_CHANNEL=chrome pnpm test:e2e`（3 组）通过。浏览器测试断言认领及完成的弹窗文案、取消时没有操作请求、姓名和状态保留，以及确认后的匿名认领、账号认领、跨设备完成、管理员代为完成和并发认领冲突处理。使用隔离数据库，未修改实际任务；页面布局未改变，原生弹窗内容通过 Playwright dialog 事件验证。
 
+### 登录后待认领条目展示（2026-09-30）
+
+待认领条目不再预先展示当前账号姓名，认领人区域仅显示“认领”按钮；确认弹窗仍展示账号姓名，认领成功后再显示实际认领人。`pnpm check`、`pnpm build` 和 3 组浏览器流程通过，覆盖待认领时无姓名、弹窗姓名正确及成功后姓名出现。已核对 [桌面待认领截图](screenshots/account-unclaimed.png) 和更新后的 [账号手机清单](screenshots/account-mobile.png)。
+
 ## Docker 交付验收（2026-09-30）
 
 在 Colima / Docker Engine 29.5.2、Compose 5.5.1 的 Linux arm64 环境构建 `claimlist:local`，Node.js 22.23.1、pnpm 11.9.0。多阶段生产构建和原生 SQLite 安装成功；镜像仅保留生产依赖，维护命令不在运行时安装依赖。其他 CPU 架构未在本次实测。
