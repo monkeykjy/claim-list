@@ -83,6 +83,11 @@ export function Admin() {
   }
   async function edit(item: Item, operation: string) {
     if (
+      operation === "finish" &&
+      !window.confirm(`确定代为完成“${item.title}”吗？`)
+    )
+      return;
+    if (
       operation === "delete" &&
       !window.confirm(
         `删除“${item.title}”？认领和完成信息也会删除，重新添加同名条目不会恢复这些信息。`,

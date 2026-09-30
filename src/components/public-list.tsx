@@ -37,13 +37,23 @@ export function PublicList() {
       delete next[id];
       return next;
     });
-  async function act(action: string, id: string) {
+  async function act(action: "claim" | "complete", id: string) {
+    const item = data?.items.find((item) => item.id === id);
+    if (!item || busy || accountBusy) return;
     const name = drafts[id]?.name || "";
     if (action === "claim" && !data?.participant && !name.trim()) {
       setMessageError(true);
       setMessage("请填写姓名后再认领");
       return;
     }
+    if (
+      !window.confirm(
+        action === "claim"
+          ? `确定以“${data?.participant?.name || name.trim()}”认领“${item.title}”吗？`
+          : `确定将“${item.title}”标记为已完成吗？`,
+      )
+    )
+      return;
     dismissNotice(id);
     setBusy(id);
     setMessage("");

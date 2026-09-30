@@ -1,9 +1,28 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test,
+  expect,
+  type APIRequestContext,
+  type Locator,
+} from "@playwright/test";
 import { readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 const pass = "browser-test-password";
 const origin = "http://127.0.0.1:3100";
 const uuid = "a0000000-0000-4000-8000-000000000001";
+async function confirmAction(button: Locator, accept = true) {
+  const dialogHandled = button
+    .page()
+    .waitForEvent("dialog")
+    .then(async (dialog) => {
+      const message = dialog.message();
+      if (accept) await dialog.accept();
+      else await dialog.dismiss();
+      expect(dialog.type()).toBe("confirm");
+      return message;
+    });
+  await button.click();
+  return dialogHandled;
+}
 async function action(api: APIRequestContext, data: Record<string, unknown>) {
   return api.post("/api/action", {
     data,
@@ -71,7 +90,21 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await claim.getByRole("textbox").fill("林晓");
   await publicPage.reload();
   await expect(claim.getByRole("textbox")).toHaveValue("林晓");
-  await claim.getByRole("button", { name: "认领", exact: true }).click();
+  let mutations = 0;
+  publicPage.on("request", (req) => {
+    if (req.method() === "POST" && req.url().endsWith("/api/action"))
+      mutations++;
+  });
+  expect(
+    await confirmAction(
+      claim.getByRole("button", { name: "认领", exact: true }),
+      false,
+    ),
+  ).toBe("确定以“林晓”认领“实现首页”吗？");
+  await expect(claim.getByRole("textbox")).toHaveValue("林晓");
+  await expect(claim.getByText("待认领", { exact: true })).toBeVisible();
+  expect(mutations).toBe(0);
+  await confirmAction(claim.getByRole("button", { name: "认领", exact: true }));
   await expect(claim.getByText("进行中", { exact: true })).toBeVisible();
   await expect(
     claim.getByRole("status").filter({ hasText: "认领成功，开始动手吧。" }),
@@ -104,7 +137,9 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   expect(
     (await action(request, { action: "claim", id, name: "陈墨" })).ok(),
   ).toBe(true);
-  await conflict.getByRole("button", { name: "认领", exact: true }).click();
+  await confirmAction(
+    conflict.getByRole("button", { name: "认领", exact: true }),
+  );
   await expect(
     conflict.getByRole("status").filter({ hasText: "该条目已被陈墨认领" }),
   ).toBeVisible();
@@ -126,7 +161,13 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await publicPage.reload();
   await expect(conflict.getByText("陈墨", { exact: true })).toBeVisible();
   await expect(conflict.getByRole("textbox")).toHaveCount(0);
-  await claim.getByRole("button", { name: "标记完成" }).click();
+  const beforeCancel = mutations;
+  expect(
+    await confirmAction(claim.getByRole("button", { name: "标记完成" }), false),
+  ).toBe("确定将“实现首页”标记为已完成吗？");
+  await expect(claim.getByText("进行中", { exact: true })).toBeVisible();
+  expect(mutations).toBe(beforeCancel);
+  await confirmAction(claim.getByRole("button", { name: "标记完成" }));
   await expect(claim.getByText("已完成", { exact: true })).toBeVisible();
   await expect(publicPage.getByRole("article").last()).toHaveAttribute(
     "aria-label",
@@ -152,7 +193,14 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   );
   await publicPage.getByRole("button", { name: "刷新列表" }).click();
   await expect(claim.getByRole("button", { name: "标记完成" })).toBeVisible();
-  await claim.getByRole("button", { name: "标记完成" }).click();
+  expect(
+    await confirmAction(
+      adminItem.getByRole("button", { name: "代为完成" }),
+      false,
+    ),
+  ).toBe("确定代为完成“实现首页”吗？");
+  await expect(adminItem.getByText("进行中", { exact: true })).toBeVisible();
+  await confirmAction(adminItem.getByRole("button", { name: "代为完成" }));
   // Lost response after a committed mutation: keep draft and reload authoritative data.
   const uncertain = publicPage.getByRole("article", {
     name: "补充使用说明",
@@ -163,7 +211,9 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
     await route.fetch();
     await route.abort("failed");
   });
-  await uncertain.getByRole("button", { name: "认领", exact: true }).click();
+  await confirmAction(
+    uncertain.getByRole("button", { name: "认领", exact: true }),
+  );
   await expect(publicPage.getByText(/暂时无法确认结果/)).toBeVisible();
   await expect(uncertain.getByLabel("未提交姓名草稿")).toHaveValue("周宁");
   await expect(uncertain.getByText("进行中", { exact: true })).toBeVisible();
@@ -389,12 +439,16 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
     a.getByRole("article", { name: title, exact: true });
   for (const title of ["账号进行中", "账号已完成"]) {
     await row(title).getByRole("textbox").fill("历史显示名");
-    await row(title).getByRole("button", { name: "认领", exact: true }).click();
+    await confirmAction(
+      row(title).getByRole("button", { name: "认领", exact: true }),
+    );
     await expect(
       row(title).getByText("历史显示名", { exact: true }),
     ).toBeVisible();
   }
-  await row("账号已完成").getByRole("button", { name: "标记完成" }).click();
+  await confirmAction(
+    row("账号已完成").getByRole("button", { name: "标记完成" }),
+  );
   await expect(
     row("账号已完成").getByText("已完成", { exact: true }),
   ).toBeVisible();
@@ -416,9 +470,18 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
     row("账号进行中").getByText("历史显示名", { exact: true }),
   ).toBeVisible();
   await expect(row("账号新任务").getByRole("textbox")).toHaveCount(0);
-  await row("账号新任务")
-    .getByRole("button", { name: "认领", exact: true })
-    .click();
+  expect(
+    await confirmAction(
+      row("账号新任务").getByRole("button", { name: "认领", exact: true }),
+      false,
+    ),
+  ).toBe("确定以“账号甲”认领“账号新任务”吗？");
+  await expect(
+    row("账号新任务").getByText("待认领", { exact: true }),
+  ).toBeVisible();
+  await confirmAction(
+    row("账号新任务").getByRole("button", { name: "认领", exact: true }),
+  );
   await expect(
     row("账号新任务").getByText("账号甲", { exact: true }),
   ).toBeVisible();
@@ -454,10 +517,11 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await second.getByLabel("密码", { exact: true }).fill("12345678");
   await second.getByRole("button", { name: "登录", exact: true }).click();
   await expect(second.getByText("当前账号：")).toContainText("账号甲");
-  await second
-    .getByRole("article", { name: "账号进行中", exact: true })
-    .getByRole("button", { name: "标记完成" })
-    .click();
+  await confirmAction(
+    second
+      .getByRole("article", { name: "账号进行中", exact: true })
+      .getByRole("button", { name: "标记完成" }),
+  );
   await expect(
     second
       .getByRole("article", { name: "账号进行中", exact: true })
@@ -523,7 +587,9 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
     name: "过期认领",
     exact: true,
   });
-  await expired.getByRole("button", { name: "认领", exact: true }).click();
+  await confirmAction(
+    expired.getByRole("button", { name: "认领", exact: true }),
+  );
   await expect(second.getByText(/登录状态已变化/)).toBeVisible();
   await expect(expired.getByRole("textbox")).toBeVisible();
   await expect(second.getByText("当前账号：")).toHaveCount(0);
@@ -601,10 +667,11 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await privatePage.getByLabel("密码", { exact: true }).fill("12345678");
   await privatePage.getByRole("button", { name: "登录", exact: true }).click();
   await expect(privatePage.getByText("当前账号：")).toContainText("账号乙");
-  await privatePage
-    .getByRole("article", { name: "过期认领", exact: true })
-    .getByRole("button", { name: "认领", exact: true })
-    .click();
+  await confirmAction(
+    privatePage
+      .getByRole("article", { name: "过期认领", exact: true })
+      .getByRole("button", { name: "认领", exact: true }),
+  );
   await expect(
     privatePage
       .getByRole("article", { name: "过期认领", exact: true })
