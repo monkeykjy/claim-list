@@ -1,0 +1,24 @@
+[Unit]
+Description=ClaimList intranet application
+After=network.target
+
+[Service]
+Type=simple
+User=claimlist
+Group=claimlist
+WorkingDirectory=/srv/claimlist/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/claimlist.env
+ExecStart=/usr/bin/node --import tsx scripts/server.ts --production
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/claimlist
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,50 @@
+{
+  "name": "claim-list",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.13.0 <23",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --import tsx scripts/server.ts --hostname 0.0.0.0 --port 1234",
+    "build": "next build",
+    "start": "node --env-file-if-exists=.env --import tsx scripts/server.ts --production --hostname 0.0.0.0 --port 1234",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm lint && pnpm typecheck && pnpm format:check",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "setup": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts setup",
+    "reset:passwd": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts password",
+    "db:migrate": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts migrate",
+    "db:backup": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts backup",
+    "db:restore": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts restore",
+    "test:cli": "python3 scripts/test-cli.py",
+    "test:runtime": "tsx scripts/test-runtime.ts"
+  },
+  "dependencies": {
+    "next": "16.3.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "better-sqlite3": "13.0.3",
+    "server-only": "0.0.1",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "prettier": "3.9.9",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "@types/better-sqlite3": "9.6.0",
+    "@playwright/test": "1.63.0"
+  }
+}
