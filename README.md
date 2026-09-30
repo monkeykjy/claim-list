@@ -32,26 +32,65 @@ pnpm dev
 
 `package.json` 中的 `dev` 和 `start` 均明确指定 `--hostname 0.0.0.0 --port 1234`，监听所有 IPv4 网卡。本机可通过上面的地址访问，其他设备使用 `http://服务器内网IP:1234`。数据库位于 `data/claim-list.sqlite`。`APP_ORIGIN` 默认留空，直连时按本机实际网卡地址执行同源校验；使用域名或反向代理时设置固定来源和受信任代理。命令行参数优先于 `.env` 的 `LISTEN_HOST` / `PORT`，需要改监听地址时修改 package.json 中对应参数。详见 [部署、迁移与恢复](docs/deployment.md)。
 
+## Docker 运行
+
+已提供 [Dockerfile](Dockerfile) 和 [compose.yaml](compose.yaml)，默认映射 `1234:1234`，SQLite 整个 `/data` 目录绑定到宿主机 `./data`，更新镜像或重建容器后保留数据。
+
+```sh
+cp .env.docker.example .env.docker
+# 内网使用时修改 APP_ORIGIN 为实际访问地址；数据目录默认 ./data。
+docker compose --env-file .env.docker build
+docker compose --env-file .env.docker run --rm claimlist pnpm setup
+docker compose --env-file .env.docker up -d
+```
+
+`setup` 仅全新数据库需要执行。已有本机服务占用 1234 时，先配置其他映射端口或按迁移步骤停机切换。完整的更新、备份、恢复及原数据迁入步骤见 [Docker 部署与持久化](docs/docker.md)。
+
+### 容器内初始化管理员
+
+如果容器已经启动，但还没有设置管理员密码，在项目根目录执行：
+
+```sh
+docker compose --env-file .env.docker exec --user node claimlist pnpm setup
+```
+
+终端会输出一次性初始化口令。打开 `.env.docker` 中 `APP_ORIGIN` 对应的网站地址，进入右上角“设置与管理”，输入该口令并设置管理员密码。密码要求 8–128 个字符，不要求大小写、数字或特殊符号组合；初始化完成后口令立即失效。若已经通过上面的 `run --rm` 命令生成口令，可直接使用，无需再次执行；初始化前重复执行 `setup` 会替换旧口令。
+
+沿用已有 `./data` 且之前已初始化时，直接使用原管理员密码登录，无需重新初始化。忘记密码请使用下面的重置命令。
+
+### 容器内重置管理员密码
+
+保持容器运行，在项目根目录的交互式终端执行：
+
+```sh
+docker compose --env-file .env.docker exec --user node claimlist pnpm reset:passwd
+```
+
+按提示输入两次新密码，长度同样为 8–128 个字符。输入时不显示字符，也不显示星号，这是正常行为。不要添加 `-T`，也不要通过命令行参数或管道传入密码。
+
+重置成功后，全部旧管理员会话失效，需要用新密码重新登录。任务、认领记录、参与者账号及其密码和会话保持不变。参与者密码由管理员在网页中按账号重置，此命令只重置管理员密码。
+
 ## 命令
 
-| 命令                                            | 用途                                                                         |
-| ----------------------------------------------- | ---------------------------------------------------------------------------- |
-| `pnpm dev`                                      | 启动开发服务器，包含可靠 IP 获取的 Node 入口                                 |
-| `pnpm build`                                    | 生成生产构建                                                                 |
-| `pnpm start`                                    | 启动生产服务器，使用同一 Node 入口                                           |
-| `pnpm check`                                    | 依次执行 lint、类型和格式检查                                                |
-| `pnpm lint`                                     | ESLint 检查，警告也视为失败                                                  |
-| `pnpm typecheck`                                | 生成路由类型并执行 TypeScript 检查                                           |
-| `pnpm format` / `pnpm format:check`             | 格式化／检查格式                                                             |
-| `pnpm test`                                     | 真实 SQLite、权限、并发进程和备份恢复测试                                    |
-| `pnpm test:e2e`                                 | 浏览器完整流程、异常反馈、刷新和响应式布局测试；先执行 build                 |
-| `pnpm test:runtime`                             | 生产进程重启、API 和命令行备份恢复验收；先执行 build，使用临时库和 3120 端口 |
-| `pnpm test:cli`                                 | 在真实伪终端验证隐藏密码输入及重置行为；需要 macOS/Linux 和 Python 3         |
-| `pnpm setup`                                    | 首次设置前生成或旋转一次性初始化口令                                         |
-| `pnpm reset:passwd`                             | 隐藏输入新密码，重置后使全部旧管理会话失效                                   |
-| `pnpm db:migrate`                               | 建立／升级数据库，保留已有业务数据                                           |
-| `pnpm db:backup /path/new.sqlite`               | 在线生成一致性备份，拒绝覆盖已有文件                                         |
-| `pnpm db:restore /path/backup.sqlite --confirm` | 停机恢复，备份原库并使旧会话失效                                             |
+| 命令                                            | 用途                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                      | 启动开发服务器，包含可靠 IP 获取的 Node 入口                                                |
+| `pnpm build`                                    | 生成生产构建                                                                                |
+| `pnpm start`                                    | 启动生产服务器，使用同一 Node 入口                                                          |
+| `pnpm check`                                    | 依次执行 lint、类型和格式检查                                                               |
+| `pnpm lint`                                     | ESLint 检查，警告也视为失败                                                                 |
+| `pnpm typecheck`                                | 生成路由类型并执行 TypeScript 检查                                                          |
+| `pnpm format` / `pnpm format:check`             | 格式化／检查格式                                                                            |
+| `pnpm test`                                     | 真实 SQLite、权限、并发进程和备份恢复测试                                                   |
+| `pnpm test:e2e`                                 | 浏览器完整流程、异常反馈、刷新和响应式布局测试；先执行 build                                |
+| `pnpm test:runtime`                             | 生产进程重启、API 和命令行备份恢复验收；先执行 build，使用临时库和 3120 端口                |
+| `pnpm test:docker`                              | 验证 Docker 端口、绑定目录、重启与重建、账号数据保留及备份恢复；先构建 claimlist:local 镜像 |
+| `pnpm test:cli`                                 | 在真实伪终端验证隐藏密码输入及重置行为；需要 macOS/Linux 和 Python 3                        |
+| `pnpm setup`                                    | 首次设置前生成或旋转一次性初始化口令                                                        |
+| `pnpm reset:passwd`                             | 隐藏输入新密码，重置后使全部旧管理会话失效                                                  |
+| `pnpm db:migrate`                               | 建立／升级数据库，保留已有业务数据                                                          |
+| `pnpm db:backup /path/new.sqlite`               | 在线生成一致性备份，拒绝覆盖已有文件                                                        |
+| `pnpm db:restore /path/backup.sqlite --confirm` | 停机恢复，备份原库并使旧会话失效                                                            |
 
 浏览器测试首次运行需安装浏览器：
 

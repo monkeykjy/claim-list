@@ -55,3 +55,6 @@ next-env.d.ts
 # browser test artifacts
 /test-results/
 /playwright-report/
+
+# Docker configuration example (never commit .env.docker)
+!.env.docker.example

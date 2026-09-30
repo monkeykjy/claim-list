@@ -24,7 +24,8 @@
     "db:backup": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts backup",
     "db:restore": "node --env-file-if-exists=.env --conditions=react-server --import tsx scripts/manage.ts restore",
     "test:cli": "python3 scripts/test-cli.py",
-    "test:runtime": "tsx scripts/test-runtime.ts"
+    "test:runtime": "tsx scripts/test-runtime.ts",
+    "test:docker": "tsx scripts/test-docker.ts"
   },
   "dependencies": {
     "next": "16.3.6",
