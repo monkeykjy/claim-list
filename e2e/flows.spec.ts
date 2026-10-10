@@ -90,6 +90,15 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await claim.getByRole("textbox").fill("林晓");
   await publicPage.reload();
   await expect(claim.getByRole("textbox")).toHaveValue("林晓");
+  const categories = publicPage.getByRole("group", { name: "条目分类" });
+  await categories
+    .getByRole("button", { name: "已完成 0", exact: true })
+    .click();
+  await expect(publicPage.getByText("当前分类暂无条目")).toBeVisible();
+  await categories
+    .getByRole("button", { name: "共 3 项", exact: true })
+    .click();
+  await expect(claim.getByRole("textbox")).toHaveValue("林晓");
   let mutations = 0;
   publicPage.on("request", (req) => {
     if (req.method() === "POST" && req.url().endsWith("/api/action"))
@@ -113,6 +122,7 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await publicPage.screenshot({
     path: "docs/screenshots/claim-success-tip.png",
     fullPage: true,
+    animations: "disabled",
   });
   const publicData = await (
     await request.get("/api/list", {
@@ -154,6 +164,7 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await publicPage.screenshot({
     path: "docs/screenshots/claim-conflict-tip.png",
     fullPage: true,
+    animations: "disabled",
   });
   await expect(conflict.getByText("该条目已被陈墨认领")).toHaveCount(0, {
     timeout: 7000,
@@ -169,10 +180,45 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   expect(mutations).toBe(beforeCancel);
   await confirmAction(claim.getByRole("button", { name: "标记完成" }));
   await expect(claim.getByText("已完成", { exact: true })).toBeVisible();
-  await expect(publicPage.getByRole("article").last()).toHaveAttribute(
+  await expect(publicPage.getByRole("article").first()).toHaveAttribute(
     "aria-label",
     "实现首页",
   );
+  await expect(claim.getByLabel("条目序号")).toHaveText("01");
+  await categories
+    .getByRole("button", { name: "待认领 1", exact: true })
+    .click();
+  await expect(publicPage.getByRole("article")).toHaveCount(1);
+  const remaining = publicPage.getByRole("article", {
+    name: "补充使用说明",
+    exact: true,
+  });
+  await expect(remaining.getByLabel("条目序号")).toHaveText("03");
+  await remaining.getByRole("textbox").fill("筛选草稿");
+  await categories
+    .getByRole("button", { name: "进行中 1", exact: true })
+    .click();
+  await expect(publicPage.getByRole("article")).toHaveCount(1);
+  await expect(conflict.getByLabel("条目序号")).toHaveText("02");
+  await publicPage.getByRole("button", { name: "刷新列表" }).click();
+  await expect(
+    categories.getByRole("button", { name: "进行中 1", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await categories
+    .getByRole("button", { name: "已完成 1", exact: true })
+    .click();
+  await expect(publicPage.getByRole("article")).toHaveCount(1);
+  await expect(claim.getByLabel("条目序号")).toHaveText("01");
+  await categories
+    .getByRole("button", { name: "我认领 1", exact: true })
+    .click();
+  await expect(publicPage.getByRole("article")).toHaveCount(1);
+  await expect(claim).toBeVisible();
+  await categories
+    .getByRole("button", { name: "共 3 项", exact: true })
+    .click();
+  await expect(publicPage.getByRole("article")).toHaveCount(3);
+  await expect(remaining.getByRole("textbox")).toHaveValue("筛选草稿");
   await page.getByRole("button", { name: "刷新", exact: true }).click();
   const adminItem = page.getByRole("article", {
     name: "实现首页",
@@ -262,8 +308,15 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await publicPage.screenshot({
     path: "docs/screenshots/list-desktop.png",
     fullPage: true,
+    animations: "disabled",
   });
   await publicPage.setViewportSize({ width: 390, height: 844 });
+  await publicPage.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   expect(
     await publicPage.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -272,12 +325,14 @@ test("完整协作流程、刷新和认领冲突提示、管理员纠错、改�
   await publicPage.screenshot({
     path: "docs/screenshots/list-mobile.png",
     fullPage: true,
+    animations: "disabled",
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "刷新", exact: true }).click();
   await page.screenshot({
     path: "docs/screenshots/admin-desktop.png",
     fullPage: true,
+    animations: "disabled",
   });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
@@ -461,6 +516,7 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await a.screenshot({
     path: "docs/screenshots/account-register.png",
     fullPage: true,
+    animations: "disabled",
   });
   await panel.getByRole("button", { name: "注册并登录" }).click();
   await expect(
@@ -476,6 +532,7 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await a.screenshot({
     path: "docs/screenshots/account-unclaimed.png",
     fullPage: true,
+    animations: "disabled",
   });
   expect(
     await confirmAction(
@@ -497,6 +554,30 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
     (i: { title: string }) => i.title === "账号进行中",
   ).id;
   const accountId = list.participant.id;
+  const accountCategories = a.getByRole("group", { name: "条目分类" });
+  await accountCategories
+    .getByRole("button", { name: "我认领 3", exact: true })
+    .click();
+  await expect(a.getByRole("article")).toHaveCount(3);
+  await expect(a.getByRole("article").getByRole("heading")).toHaveText([
+    "账号进行中",
+    "账号已完成",
+    "账号新任务",
+  ]);
+  const ownedNumbers = list.items
+    .filter((item: { isMine: boolean }) => item.isMine)
+    .map((item: { sequence: number }) =>
+      String(item.sequence).padStart(2, "0"),
+    );
+  await expect(a.getByLabel("条目序号")).toHaveText(ownedNumbers);
+  await expect(
+    accountCategories.getByRole("button", { name: "我认领 3", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await a.screenshot({
+    path: "docs/screenshots/filter-mine.png",
+    fullPage: true,
+    animations: "disabled",
+  });
   expect(JSON.stringify(list)).not.toContain("alpha@example.com");
   expect(
     (
@@ -524,11 +605,33 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await second.getByLabel("密码", { exact: true }).fill("12345678");
   await second.getByRole("button", { name: "登录", exact: true }).click();
   await expect(second.getByText("当前账号：")).toContainText("账号甲");
+  await second
+    .getByRole("group", { name: "条目分类" })
+    .getByRole("button", { name: "我认领 3", exact: true })
+    .click();
+  await expect(second.getByLabel("条目序号")).toHaveText(ownedNumbers);
+  await second
+    .getByRole("group", { name: "条目分类" })
+    .getByRole("button", { name: /^进行中 / })
+    .click();
   await confirmAction(
     second
       .getByRole("article", { name: "账号进行中", exact: true })
       .getByRole("button", { name: "标记完成" }),
   );
+  await expect(
+    second.getByRole("article", { name: "账号进行中", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    second
+      .getByRole("group", { name: "条目分类" })
+      .getByRole("button", { name: /^进行中 / }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await second
+    .getByRole("group", { name: "条目分类" })
+    .getByRole("button", { name: "我认领 3", exact: true })
+    .click();
+  await expect(second.getByLabel("条目序号")).toHaveText(ownedNumbers);
   await expect(
     second
       .getByRole("article", { name: "账号进行中", exact: true })
@@ -543,6 +646,15 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await expect(panel.getByText("当前账号：")).toContainText("账号甲");
   a.once("dialog", (dialog) => dialog.accept());
   await panel.getByRole("button", { name: "退出账号" }).click();
+  await expect(
+    accountCategories.getByRole("button", { name: "我认领 0", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(a.getByText("当前分类暂无条目")).toBeVisible();
+  await accountCategories.getByRole("button", { name: /^共 / }).click();
+  await second
+    .getByRole("group", { name: "条目分类" })
+    .getByRole("button", { name: /^共 / })
+    .click();
   await expect(row("账号草稿").getByRole("textbox")).toHaveValue("不应丢失");
   await expect(
     row("账号新任务").getByRole("button", { name: "标记完成" }),
@@ -585,6 +697,7 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await page.screenshot({
     path: "docs/screenshots/account-admin.png",
     fullPage: true,
+    animations: "disabled",
   });
   page.once("dialog", (dialog) => dialog.accept());
   await management.getByRole("button", { name: "重置参与者密码" }).click();
@@ -618,6 +731,7 @@ test("可选账号完整流程：绑定、跨设备、账号切换、重置、�
   await second.screenshot({
     path: "docs/screenshots/account-mobile.png",
     fullPage: true,
+    animations: "disabled",
   });
   expect(
     await second.evaluate(

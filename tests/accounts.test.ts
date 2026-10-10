@@ -198,6 +198,16 @@ test("账号与匿名权限矩阵、认领身份切换、管理员纠错与数�
     /登录状态/,
   );
   store.claim(ids[1], "匿名", anonymous);
+  const mine = (identity: typeof owner | typeof anonymous) =>
+    store
+      .list(identity)
+      .items.filter((item) => item.isMine)
+      .map((item) => item.id);
+  assert.deepEqual(mine(owner), [ids[0]]);
+  assert.deepEqual(mine(anonymous), [ids[1]]);
+  assert.deepEqual(mine({ ...owner, participantToken: b.token }), []);
+  assert.deepEqual(mine({ ...anonymous, uuid: otherUuid }), []);
+  assert.deepEqual(mine({ ...anonymous, ip: "another-network" }), [ids[1]]);
   for (const identity of [
     anonymous,
     { ...owner, participantToken: "" },
@@ -224,6 +234,10 @@ test("账号与匿名权限矩阵、认领身份切换、管理员纠错与数�
   );
   assert(store.list(owner).items.find((i) => i.id === ids[0])!.canComplete);
   store.complete(ids[0], { ...owner, ip: "third-device", uuid });
+  assert.deepEqual(
+    mine({ ...owner, ip: "third-device", uuid: "third-browser" }),
+    [ids[0]],
+  );
   const completed = raw(store)[0].completed_at;
   store.complete(ids[0], owner);
   assert.equal(raw(store)[0].completed_at, completed);

@@ -21,6 +21,7 @@ export function PublicList() {
   const [busy, setBusy] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountMode, setAccountMode] = useState<AccountMode>(null);
+  const [filter, setFilter] = useState("all");
   const [itemNotices, setItemNotices] = useState<
     Record<string, ItemNoticeData>
   >({});
@@ -102,6 +103,27 @@ export function PublicList() {
       setBusy("");
     }
   }
+  const items = data?.items || [];
+  const groups = [
+    { key: "all", label: `共 ${items.length} 项`, items },
+    {
+      key: "unclaimed",
+      label: "待认领",
+      items: items.filter((i) => !i.claimant),
+    },
+    {
+      key: "active",
+      label: "进行中",
+      items: items.filter((i) => i.claimant && !i.completedAt),
+    },
+    {
+      key: "completed",
+      label: "已完成",
+      items: items.filter((i) => i.completedAt),
+    },
+    { key: "mine", label: "我认领", items: items.filter((i) => i.isMine) },
+  ];
+  const visibleItems = groups.find((group) => group.key === filter)!.items;
   const orphaned = data
     ? Object.entries(drafts).filter(
         ([id, d]) => d.name && !data.items.some((i) => i.id === id),
@@ -154,20 +176,36 @@ export function PublicList() {
         </div>
       ) : (
         <>
-          <div className="mb-5 flex flex-wrap gap-4 text-sm text-slate-600">
-            <span>共 {data.items.length} 项</span>
-            <span>待认领 {data.items.filter((i) => !i.claimant).length}</span>
-            <span>
-              进行中{" "}
-              {data.items.filter((i) => i.claimant && !i.completedAt).length}
-            </span>
-            <span>已完成 {data.items.filter((i) => i.completedAt).length}</span>
+          <div
+            role="group"
+            aria-label="条目分类"
+            className="mb-5 flex flex-wrap gap-2"
+          >
+            {groups.map((group) => (
+              <button
+                key={group.key}
+                type="button"
+                aria-pressed={filter === group.key}
+                className={`button ${filter === group.key ? "" : "secondary"}`}
+                onClick={() => setFilter(group.key)}
+              >
+                {group.label}
+                {group.key !== "all" && ` ${group.items.length}`}
+              </button>
+            ))}
           </div>
           {!data.items.length ? (
             <div className="panel py-16 text-center">
               <h2>还没有条目</h2>
               <p className="mt-3 text-sm text-slate-500">
                 暂无条目，管理员可通过右上角设置添加
+              </p>
+            </div>
+          ) : !visibleItems.length ? (
+            <div className="panel py-16 text-center" role="status">
+              <h2>当前分类暂无条目</h2>
+              <p className="mt-3 text-sm text-slate-500">
+                可切换上方分类查看其他条目。
               </p>
             </div>
           ) : (
@@ -180,15 +218,18 @@ export function PublicList() {
                 <span>{data.config.claimantLabel}</span>
                 <span>{data.config.statusLabel}</span>
               </div>
-              {data.items.map((item, index) => (
+              {visibleItems.map((item) => (
                 <article
                   key={item.id}
                   aria-label={item.title}
                   className="grid gap-4 border-b border-slate-100 p-5 last:border-0 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_170px] md:items-start md:gap-6 md:p-7"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="mt-1 text-xs tabular-nums text-slate-400">
-                      {String(index + 1).padStart(2, "0")}
+                    <span
+                      aria-label="条目序号"
+                      className="mt-1 shrink-0 text-xs tabular-nums text-slate-400"
+                    >
+                      {String(item.sequence).padStart(2, "0")}
                     </span>
                     <h2 className="min-w-0 text-base leading-7 break-words">
                       {item.title}

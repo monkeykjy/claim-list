@@ -380,6 +380,12 @@ export function Admin() {
                     >
                       <div className="min-w-0 flex-1 basis-64">
                         <h3 className="font-medium break-words">
+                          <span
+                            aria-label="条目序号"
+                            className="mr-3 text-xs font-normal tabular-nums text-slate-400"
+                          >
+                            {String(item.sequence).padStart(2, "0")}
+                          </span>
                           {item.title}
                         </h3>
                         <div className="mt-2 flex flex-wrap items-center gap-3">

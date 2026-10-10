@@ -109,6 +109,7 @@ test("管理员更名不转移身份，状态纠错和删除重建", (t) => {
   store.claim(item, "张三", identity);
   const row = () =>
     store.list(identity).items.find((entry) => entry.id === item)!;
+  assert.equal(row().sequence, 1);
   store.edit(item, row().revision, "name", "李四");
   assert.equal(row().claimant, "李四");
   assert(row().canComplete);
@@ -128,7 +129,7 @@ test("管理员更名不转移身份，状态纠错和删除重建", (t) => {
   assert(row().completedAt);
   assert.deepEqual(
     store.list(identity).items.map((entry) => entry.title),
-    ["另一个", "新标题"],
+    ["新标题", "另一个"],
   );
   store.edit(item, row().revision, "reopen");
   assert.deepEqual(
@@ -136,6 +137,7 @@ test("管理员更名不转移身份，状态纠错和删除重建", (t) => {
     ["新标题", "另一个"],
   );
   assert.equal(row().completedAt, null);
+  assert.equal(row().sequence, 1);
   assert.equal(row().claimant, "李四");
   store.edit(item, row().revision, "finish");
   store.edit(item, row().revision, "release");
@@ -159,6 +161,16 @@ test("管理员更名不转移身份，状态纠错和删除重建", (t) => {
     .items.find((i) => i.title === "新标题")!;
   assert.notEqual(recreated.id, item);
   assert.equal(recreated.claimant, null);
+  assert.deepEqual(
+    store.list(identity).items.map((entry) => entry.sequence),
+    [2, 3],
+  );
+  store.edit(recreated.id, recreated.revision, "delete");
+  store.addBatch("新条目");
+  assert.deepEqual(
+    store.list(identity).items.map((entry) => entry.sequence),
+    [2, 4],
+  );
 });
 
 test("初始化封闭、会话到期退出与改密重置失效、失败保留密码", (t) => {

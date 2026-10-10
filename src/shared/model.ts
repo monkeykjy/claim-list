@@ -17,6 +17,7 @@ export type Config = {
 };
 export type Item = {
   id: string;
+  sequence: number;
   title: string;
   claimant: string | null;
   claimedAt: number | null;

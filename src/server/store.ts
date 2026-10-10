@@ -17,6 +17,7 @@ import {
 
 type Row = {
   id: string;
+  sequence: number;
   title: string;
   claimant: string | null;
   claim_ip: string | null;
@@ -249,15 +250,14 @@ export class Store {
   private listSnapshot(identity: Identity): ListData {
     const participant = this.participants.current(identity.participantToken);
     const rows = this.db
-      .prepare(
-        "SELECT * FROM items ORDER BY completed_at IS NOT NULL, sequence",
-      )
+      .prepare("SELECT * FROM items ORDER BY sequence")
       .all() as Row[];
     return {
       participant,
       config: JSON.parse(this.settings().config),
       items: rows.map((row): Item => ({
         id: row.id,
+        sequence: row.sequence,
         title: row.title,
         claimant: row.claimant,
         claimedAt: row.claimed_at,
